@@ -6,6 +6,7 @@ import numpy as np
 
 class Maze:
     def __init__(self, grid, start=(0, 0), goal=None):
+        """Create a maze from a grid array (0=free, 1=wall)."""
         self.grid = np.array(grid, dtype=int)
         self.nrows, self.ncols = self.grid.shape
         self.start = start
@@ -16,16 +17,33 @@ class Maze:
             raise ValueError(f"Goal {self.goal} is inside a wall")
 
     def is_free(self, pos):
+        """Return True if pos is in-bounds and not a wall."""
         r, c = pos
         return (0 <= r < self.nrows and 0 <= c < self.ncols
                 and self.grid[r, c] == 0)
 
-    def neighbors(self, pos):
+    def neighbors(self, pos, diagonal=False):
+        """Yield free neighbours of pos.
+
+        If diagonal is False (default), only the 4 orthogonal neighbours are
+        yielded. If True, the 8 surrounding cells are yielded; diagonal moves
+        are only allowed when the target cell is free and the two corner-adjacent
+        orthogonal cells are also free (so the agent cannot cut the corner
+        through a wall).
+        """
         r, c = pos
-        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        orth = ((1, 0), (-1, 0), (0, 1), (0, -1))
+        for dr, dc in orth:
             nb = (r + dr, c + dc)
             if self.is_free(nb):
                 yield nb
+        if diagonal:
+            for dr, dc in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                nb = (r + dr, c + dc)
+                if (self.is_free(nb)
+                        and self.is_free((r + dr, c))
+                        and self.is_free((r, c + dc))):
+                    yield nb
 
     def find_path(self, start=None, goal=None):
         """BFS shortest path from start to goal, or None if unreachable."""
@@ -52,11 +70,13 @@ class Maze:
         return path[::-1]
 
     def has_path(self, start=None, goal=None):
+        """Return True if a path exists from start to goal."""
         return self.find_path(start, goal) is not None
 
     @staticmethod
     def random(nrows, ncols, wall_prob=0.25, seed=None,
                start=(0, 0), goal=None):
+        """Generate a random maze with given wall probability."""
         goal = goal if goal is not None else (nrows - 1, ncols - 1)
         rng = np.random.default_rng(seed)
         grid = (rng.random((nrows, ncols)) < wall_prob).astype(int)
